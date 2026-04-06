@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "CoconutStock": {
+      "title": "Coconut Stock",
+      "description": "Represents the incoming coconut stock.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quantity": { "type": "number", "description": "Number of coconuts received" },
+        "receivedDate": { "type": "string", "format": "date-time" },
+        "source": { "type": "string", "description": "Supplier or source of coconuts" },
+        "status": { "type": "string", "enum": ["received", "peeling", "completed"] }
+      },
+      "required": ["quantity", "receivedDate", "source", "status"]
+    },
+    "PeelingProcess": {
+      "title": "Peeling Process",
+      "description": "Tracks the peeling process of coconuts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "stockId": { "type": "string", "description": "Reference to CoconutStock" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "peelerName": { "type": "string" },
+        "quantity": { "type": "number", "description": "Number of coconuts being peeled" },
+        "weightAfter": { "type": "number", "description": "Weight of peeled coconuts (DC)" },
+        "huskQuantity": { "type": "number", "description": "Quantity of husks produced" }
+      },
+      "required": ["stockId", "startDate", "peelerName", "quantity"]
+    },
+    "Sales": {
+      "title": "Coconut Sales",
+      "description": "Tracks sales of peeled coconuts (DC).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "customerName": { "type": "string" }
+      },
+      "required": ["quantity", "price", "date", "customerName"]
+    },
+    "HuskSales": {
+      "title": "Husk Sales",
+      "description": "Tracks sales of coconut husks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "quantity": { "type": "number" },
+        "price": { "type": "number" },
+        "date": { "type": "string", "format": "date-time" },
+        "customerName": { "type": "string" }
+      },
+      "required": ["quantity", "price", "date", "customerName"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Represents a user of the system.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] }
+      },
+      "required": ["uid", "email", "role"]
+    }
+  },
+  "firestore": {
+    "/coconut_stock/{stockId}": {
+      "schema": "CoconutStock",
+      "description": "Collection of coconut stock entries"
+    },
+    "/peeling_processes/{processId}": {
+      "schema": "PeelingProcess",
+      "description": "Collection of peeling process entries"
+    },
+    "/sales/{saleId}": {
+      "schema": "Sales",
+      "description": "Collection of coconut sales entries"
+    },
+    "/husk_sales/{huskSaleId}": {
+      "schema": "HuskSales",
+      "description": "Collection of husk sales entries"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Collection of user profiles"
+    }
+  }
+}

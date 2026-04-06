@@ -1,0 +1,169 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: coconut_stock
+// Document ID: auto-generated
+// Fields:
+//   - quantity: number (required) - Number of coconuts received
+//   - receivedDate: string (required, ISO 8601) - Date received
+//   - source: string (required) - Supplier or source
+//   - status: string (required, enum: ['received', 'peeling', 'completed']) - Current status
+//   - createdBy: string (required) - UID of the user who created the entry
+//
+// Collection: peeling_processes
+// Document ID: auto-generated
+// Fields:
+//   - stockId: string (required) - Reference to coconut_stock
+//   - startDate: string (required, ISO 8601) - Start date of peeling
+//   - endDate: string (optional, ISO 8601) - End date of peeling
+//   - peelerName: string (required) - Name of the peeler
+//   - quantity: number (required) - Number of coconuts being peeled
+//   - weightAfter: number (optional) - Weight of peeled coconuts (DC)
+//   - huskQuantity: number (optional) - Quantity of husks produced
+//   - createdBy: string (required) - UID of the user who created the entry
+//
+// Collection: sales
+// Document ID: auto-generated
+// Fields:
+//   - quantity: number (required) - Number of peeled coconuts sold
+//   - price: number (required) - Sale price
+//   - date: string (required, ISO 8601) - Sale date
+//   - customerName: string (required) - Name of the customer
+//   - createdBy: string (required) - UID of the user who created the entry
+//
+// Collection: husk_sales
+// Document ID: auto-generated
+// Fields:
+//   - quantity: number (required) - Number of husks sold
+//   - price: number (required) - Sale price
+//   - date: string (required, ISO 8601) - Sale date
+//   - customerName: string (required) - Name of the customer
+//   - createdBy: string (required) - UID of the user who created the entry
+//
+// Collection: users
+// Document ID: userId (UID)
+// Fields:
+//   - uid: string (required) - User's UID
+//   - email: string (required) - User's email
+//   - role: string (required, enum: ['admin', 'staff']) - User's role
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         (request.auth.token.email == "nawshad14064@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isStaff() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff' || isAdmin());
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string &&
+        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidCoconutStock(data) {
+      return hasRequiredFields(['quantity', 'receivedDate', 'source', 'status', 'createdBy']) &&
+             data.quantity is number && data.quantity > 0 &&
+             isValidDateString(data.receivedDate) &&
+             data.source is string && data.source.size() > 0 && data.source.size() < 100 &&
+             data.status in ['received', 'peeling', 'completed'] &&
+             data.createdBy == request.auth.uid;
+    }
+
+    function isValidPeelingProcess(data) {
+      return hasRequiredFields(['stockId', 'startDate', 'peelerName', 'quantity', 'createdBy']) &&
+             data.stockId is string &&
+             isValidDateString(data.startDate) &&
+             data.peelerName is string && data.peelerName.size() > 0 && data.peelerName.size() < 100 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.createdBy == request.auth.uid;
+    }
+
+    function isValidSale(data) {
+      return hasRequiredFields(['quantity', 'price', 'date', 'customerName', 'createdBy']) &&
+             data.quantity is number && data.quantity > 0 &&
+             data.price is number && data.price >= 0 &&
+             isValidDateString(data.date) &&
+             data.customerName is string && data.customerName.size() > 0 && data.customerName.size() < 100 &&
+             data.createdBy == request.auth.uid;
+    }
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'email', 'role']) &&
+             data.uid == request.auth.uid &&
+             data.email is string &&
+             data.role in ['admin', 'staff'];
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAdmin();
+    }
+
+    match /coconut_stock/{stockId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidCoconutStock(request.resource.data);
+      allow update: if isStaff() && isValidCoconutStock(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /peeling_processes/{processId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidPeelingProcess(request.resource.data);
+      allow update: if isStaff() && isValidPeelingProcess(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /sales/{saleId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidSale(request.resource.data);
+      allow update: if isStaff() && isValidSale(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /husk_sales/{huskSaleId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidSale(request.resource.data);
+      allow update: if isStaff() && isValidSale(request.resource.data);
+      allow delete: if isAdmin();
+    }
+  }
+}
